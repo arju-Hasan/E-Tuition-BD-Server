@@ -112,6 +112,28 @@ app.get('/users/:email', async (req, res) => {
   }
 });
 
+// GET user role by email
+app.get('/users/:email/role', async (req, res) => {
+    try {
+        const email = req.params.email;
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const user = await usersCollection.findOne({ email: email });
+
+        if (!user) {
+            return res.status(404).json({ role: 'user' }); // default role
+        }
+
+        res.json({ role: user.role || 'user' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 
 
