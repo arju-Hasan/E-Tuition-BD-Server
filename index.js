@@ -17,7 +17,7 @@ admin.initializeApp({
 
 
 function generateTrackingId() {
-    const prefix = "ETB";  // brand short code (Bangla Express)
+    const prefix = "ETB";  // brand short code (E-Tuitionbd)
     const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
     const timePart = Date.now().toString().slice(-6); 
     return `${prefix}-${randomPart}-${timePart}`;
@@ -71,9 +71,8 @@ async function run() {
 
 
     const db = client.db('E_Tuition_DB');
-    const parcleCollection = db.collection('parcles');
-    const paymentCollection = db.collection('payments');
     const usersCollection = db.collection('users');
+    const tutorsCollection =db.collection('tutors')
     const ridersCollection = db.collection('riders');
 
     // ================users api ========
@@ -133,6 +132,110 @@ app.get('/users/:email/role', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+  //============== Tutors Api ======================
+app.post('/tutors', async (req, res) => {
+  try { const tutorData = req.body;
+    tutorData.createdAt = new Date();
+    const result = await tutorsCollection.insertOne(tutorData);
+    res.send({
+      success: true,
+      message: "Tutor request added successfully!",
+      data: result
+    });
+
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+});
+
+  // all tutor found
+app.get('/tutors', async (req, res) => {
+  try {
+    const result = await tutorsCollection.find().toArray();
+
+    res.send({
+      success: true,
+      message: "All tutors fetched successfully",
+      data: result
+    });
+
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+});
+
+  // tutors update
+// GET /tutors/user?email=user@example.com
+app.get('/tutors/email', async (req, res) => {
+  try {
+    const userEmail = req.query.email; // query param থেকে email নাও
+
+    if (!userEmail) {
+      return res.status(400).send({ success: false, message: "Email is required" });
+    }
+
+    const tutors = await tutorsCollection.find({ email: userEmail }).toArray();
+
+    res.send({
+      success: true,
+      message: "Tutors fetched for user",
+      data: tutors
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+});
+
+   //tutor found
+app.get('/tutors/:id',  async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+
+    const result = await tutorsCollection.findOne(query);
+
+    res.send({
+      success: true,
+      message: "Tutor fetched successfully",
+      data: result
+    });
+
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
