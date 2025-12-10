@@ -73,7 +73,7 @@ async function run() {
     const db = client.db('E_Tuition_DB');
     const usersCollection = db.collection('users');
     const tutorsCollection =db.collection('tutors')
-    const ridersCollection = db.collection('riders');
+    const tutionsCollection = db.collection('tutions');
 
     // ================users api ========
   app.post('/users', async (req, res) => {
@@ -133,7 +133,52 @@ app.get('/users/:email/role', async (req, res) => {
     }
 });
 
-  //============== Tutors Api ======================
+// ===============tutions post by user ==================
+app.post('/tutions', async (req, res) => {
+  try { const tutorData = req.body;
+    tutorData.createdAt = new Date();
+    const result = await tutionsCollection.insertOne(tutorData);
+    res.send({
+      success: true,
+      message: "Tution request added successfully!",
+      data: result
+    });
+
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+}); 
+
+//  all tutions get by home page
+app.get('/tutions', async (req, res) => {
+  try {
+    const result = await tutionsCollection.find().toArray();
+
+    res.send({
+      success: true,
+      message: "All tutors fetched successfully",
+      data: result
+    });
+
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+});
+
+
+
+
+
+
+  //============== Tutors post Api ======================
 app.post('/tutors', async (req, res) => {
   try { const tutorData = req.body;
     tutorData.createdAt = new Date();
@@ -173,7 +218,7 @@ app.get('/tutors', async (req, res) => {
   }
 });
 
-  // tutors update
+  // tutors by email
 // GET /tutors/user?email=user@example.com
 app.get('/tutors/email', async (req, res) => {
   try {
@@ -222,13 +267,26 @@ app.get('/tutors/:id',  async (req, res) => {
   }
 });
 
-  app.delete('/tutors/:id', async (req, res) => {
+//  tutor delete by id 
+app.delete('/tutors/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
 
             const result = await tutorsCollection.deleteOne(query);
             res.send(result);
-        })
+})
+
+// admin stsatus update
+app.patch("/tutors/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status } = req.body; // new status
+  const result = await tutorsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status: status } }
+  );
+  res.send(result);
+});
+
 
 
 
