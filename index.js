@@ -173,6 +173,63 @@ app.get('/tutions', async (req, res) => {
   }
 });
 
+// tution get by id only 
+app.get("/tutions/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const filter = { _id: new ObjectId(id) };
+
+    const result = await tutionsCollection.findOne(filter);
+
+    if (!result) {
+      return res.status(404).send({ message: "Tution not found" });
+    }
+
+    res.send({
+      status: true,
+      data: result,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Server Error" });
+  }
+});
+
+// teacher applay this job
+app.patch("/tutions/apply/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const teacherInfo = req.body;   // from frontend
+
+    const filter = { _id: new ObjectId(id) };
+    const updateDoc = {
+      $push: {
+        teachers: teacherInfo,   // push teacher details into array
+      },
+    };
+
+    const result = await tutionsCollection.updateOne(filter, updateDoc);
+
+    res.send({
+      status: true,
+      message: "Teacher added successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Server Error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
 
 
 
