@@ -221,15 +221,30 @@ app.patch("/tutions/apply/:id", async (req, res) => {
   }
 });
 
+// teacher applaied delete student
+app.delete("/tutions/:tutionId/teacher", async (req, res) => {
+  
+  try {
+    const tutionId = req.params.tutionId; // tution id
+    const teacherEmail = req.query.email; // teacher email
 
+    if (!teacherEmail) return res.status(400).send({ error: "Email is required" });
 
+    const result = await tutionsCollection.updateOne(
+      { _id: new ObjectId(tutionId) },
+      { $pull: { teachers: { email: teacherEmail } } } // pull teacher by email
+    );
 
-
-
-
-
-
-
+    if (result.modifiedCount > 0) {
+      res.send({ success: true, message: "Teacher removed" });
+    } else {
+      res.status(404).send({ success: false, message: "Teacher not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, error: error.message });
+  }
+});
 
 
 
