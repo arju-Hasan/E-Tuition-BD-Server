@@ -246,6 +246,26 @@ app.delete("/tutions/:tutionId/teacher", async (req, res) => {
   }
 });
 
+//  tutions delete by id admin 
+app.delete('/tutions/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+
+            const result = await tutionsCollection.deleteOne(query);
+            res.send(result);
+})
+
+// admin stsatus update approved
+app.patch("/tutions/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status } = req.body; // new status
+  const result = await tutionsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status: status } }
+  );
+  res.send(result);
+});
+
 
 
 
