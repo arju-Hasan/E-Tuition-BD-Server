@@ -255,16 +255,38 @@ app.delete('/tutions/:id', async (req, res) => {
             res.send(result);
 })
 
-// admin stsatus update approved
+
+
 app.patch("/tutions/:id", async (req, res) => {
-  const id = req.params.id;
-  const { status } = req.body; // new status
-  const result = await tutionsCollection.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: { status: status } }
-  );
-  res.send(result);
+    const id = req.params.id;
+    const { status, teacherEmail } = req.body;
+
+    const tutionQuery = { _id: new ObjectId(id) };
+
+    // 1️⃣ Always update tution status (old logic)
+    const tutionResult = await tutionsCollection.updateOne(
+        tutionQuery,
+        { $set: { status } }
+    );
+
+    let userResult = null;
+
+    // 2️⃣ Only when approved & teacherEmail exists
+    if (status === "assigned" && teacherEmail) {
+        const userQuery = { email: teacherEmail };
+
+        userResult = await usersCollection.updateOne(
+            userQuery,
+            { $set: { available: "Active on Job" } }
+        );
+    }
+
+    res.send({
+        tutionModified: tutionResult.modifiedCount,
+        userModified: userResult?.modifiedCount || 0
+    });
 });
+
 
 
 
@@ -379,208 +401,87 @@ app.patch("/tutors/:id", async (req, res) => {
   res.send(result);
 });
 
+app.post('/payment-checkout-session', async (req, res) => {
+  const info = req.body;
 
+  const amount = parseInt(info.salary) * 100;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // ============= riders api ===========
-
-app.patch('/riders/:id', varifyFBToken, async (req, res) => {
-  try {
-    const { status, email } = req.body;
-    const id = req.params.id;
-    const riderQuery = { _id: new ObjectId(id) };
-    // Update rider status
-    const riderUpdate = await ridersCollection.updateOne(riderQuery, {
-      $set: { status }
-    });
-    // Approved হলে user role update
-    if (status === "approved") {
-      const userQuery = { email };
-      const userUpdate = await usersCollection.updateOne(userQuery, {
-        $set: { role: "rider" }
-      });
-      return res.send({
-        success: true,
-        riderUpdate,
-        userUpdate
-      });
-    }
-    // Reject হলে কেবল rider update send করবে
-    return res.send({
-      success: true,
-      riderUpdate
-    });
-
-  } catch (error) {
-    res.status(500).send({ success: false, error: error.message });
-  }
-});
-
-  app.delete('/riders/:id', async(req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id)};
-      const result = await ridersCollection.deleteOne(query);
-      res.send(result)
-  });
-
-    // =============== parcles api ===============
-    app.get('/parcles', async (req, res) =>{
-      const query ={}
-      const {email} = req.query;
-      if(email){
-        query.SenderEmail = email;
-        
-      }      
-      // sort by new 
-      const options = {sort : {createdAt: -1}}
-      const cursor = parcleCollection.find(query, options);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
-
-    app.get('/parcles/:id', async(req, res) =>{
-       const id = req.params.id;
-      const query = { _id: new ObjectId(id)};
-      const result = await parcleCollection.findOne(query);
-      res.send(result)
-    })
-
-    app.post('/parcles', async (req, res)=>{
-        const parcle = req.body;
-        // parcle send time 
-       parcle.createdAt = new Date();
-        const result = await parcleCollection.insertOne(parcle);
-        res.send(result)
-    } )
-
-    app.delete('/parcles/:id', async(req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id)};
-      const result = await parcleCollection.deleteOne(query);
-      res.send(result)
-    })  
-
-    // ============== payment Api =================
-app.post('/create-checkout-session', async (req, res) => {
-    const paymentInfo = req.body;
-    const amount = parseInt(paymentInfo.cost)*100
-    const session = await stripe.checkout.sessions.create({
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
     line_items: [
       {
-       price_data: {
-        currency: 'USD',
-        unit_amount: amount,
-        product_data: {
-          name: paymentInfo.parcleName
-        }
-       },
-         quantity: 1       
+        price_data: {
+          currency: 'usd',
+          unit_amount: amount,
+          product_data: {
+            name: `Tution Payment`,
+          },
+        },
+        quantity: 1,
       },
     ],
     mode: 'payment',
-    customer_email: paymentInfo.customerEmail,
-    metadata:{
-      parcleId: paymentInfo.parcleId,
-      parcleName: paymentInfo.parcleName
+
+    // 🔑 IMPORTANT
+    metadata: {
+      TutionId: info.TutionId,
+      StudentEmail: info.StudentEmail,
+      StudentName: info.StudentName,
+      teacherEmail: info.teacherEmail,
     },
-    success_url: `${process.env.MY_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.MY_DOMAIN}/dashboard/payment-cancelled`,
+
+    customer_email: info.StudentEmail,
+
+    success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
   });
 
-  // res.redirect(303, session.url);
-  console.log(session.payment_intent);
-  res.send({url: session.url})
-});  
+  res.send({ url: session.url });
+});
 
-app.patch('/payment-success', async (req, res) =>{
-  const sessionId = req.query.session_id;
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
-  const trackingId = generateTrackingId();
 
-  const transactionId = session.payment_intent;
-  const query = {transactionId: transactionId};
-  const paymentExist = await paymentCollection.findOne(query);
-  if(paymentExist){
-    return res.send({
-      message: 'already exist', 
-      transactionId,
-      trackingId: paymentExist.trackingId,
-    })
+app.patch('/payment-success', async (req, res) => {
+  const { session_id } = req.query;
+
+  if (!session_id) {
+    return res.status(400).json({ error: 'Session ID is required' });
   }
 
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
 
+    const {
+      TutionId,
+      StudentEmail,
+      teacherEmail,
+    } = session.metadata;
 
-
-  console.log('session', session);
-  if(session.payment_status === 'paid'){
-    const Id = session.metadata.parcleId;
-    const query = { _id: new ObjectId(Id)}
-    const update ={
-      $set: {
-        paymentStatus:  'paid',
-        trackingId:  trackingId,
+    await db.collection('tutions').updateOne(
+      { _id: new ObjectId(TutionId) },
+      {
+        $set: {
+          payment: 'paid',
+          transactionId: session.payment_intent,
+          sessionId: session.id,
+          teacherEmail,
+        },
       }
-    }
-    const result = await parcleCollection.updateOne(query, update);
-    const payment ={
-      amount: session.amount_total/100,
-      currency: session.currency,
-      customerEmail: session.customer_email,
-      parcleId: session.metadata.parcleId,
-      parcleName: session.metadata.parcleName,
+    );
+
+    res.json({
+      success: true,
       transactionId: session.payment_intent,
-      paymentStatus: session.payment_status,
-      paidAt : new Date(),
-      trackingId:  trackingId,
-      
-    }
-    if(session.payment_status === 'paid'){
-      const resultPayment = await paymentCollection.insertOne(payment)
-      res.send({
-        success: true, 
-        modifyParcle: result,
-        trackingId:  trackingId,
-        transactionId: session.payment_intent,
-        paymentInfo: resultPayment,
-      })
-    }
+      sessionId: session.id,
+      TutionId,
+      StudentEmail,
+      teacherEmail,
+      amount: session.amount_total / 100,
+    });
+  } catch (err) {
+    console.error('Payment success error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-  return res.send({success: false})
-})
-
-// =================payment histary api =================
-app.get('/payments', varifyFBToken, async(req, res)=>{
-  const email = req.query.email;
-  const query = {};
-  if(email){
-    query.customerEmail = email
-  }
-
-  if(email !== req.decoded_email){
-    return res.status(403).send({message: "forbidden access"})
-  }
-   const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
-  const result = await cursor.toArray();
-
-  res.send(result);
-})
+});
 
 
  // =================Send a ping to confirm a successful connection ==================
