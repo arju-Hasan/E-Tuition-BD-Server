@@ -95,6 +95,17 @@ async function run() {
     res.send(result);
   });
 
+  // users put api (upsert)
+app.put('/users/:id', async (req, res) => {
+  const id = req.params.id;
+  const updatedData = req.body;
+  const result = await usersCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updatedData }
+  );
+  res.json({ modifiedCount: result.modifiedCount });
+});
+
     //  user by email
 app.get('/users/:email', async (req, res) => {
   const email = req.params.email;
